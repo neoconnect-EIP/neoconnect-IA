@@ -44,20 +44,6 @@ function getFacebookNumericResult(facebookUsername) {
 	});
 }
 
-async function getFacebookNumericResult(instagramHandle) {
-	let checks = {};
-	await getInstagramResult(instagramHandle, checks);
-
-	if (checks.instagram.isBot !== null) {
-		if (checks.instagram.isBot === true) return 1;
-
-		if (checks.instagram.isBot === false) return 0;
-	} else if (checks.instagram.errors.length > 0) {
-		if (checks.instagram.errors[0].errorCode === 500) return 500;
-		else return 400;
-	}
-}
-
 function getInstagramResult(instagramHandle, checks) {
 	var promise = new Promise((resolve) => {
 		checks.instagram = {
