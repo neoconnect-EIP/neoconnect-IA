@@ -7,11 +7,200 @@ var botChecker = require('./botCheckers/twitter_bot_checker/globalFunction');
 const isInstagramBot = require('./botCheckers/ig_bot_checker/instagramGlobalScore').isInstagramBot;
 const facebookChecker = require('./botCheckers/facebook_bot_checker/scraper').checkFacebookProfileExistence;
 const youtubeChecker = require('./botCheckers/youtube_bot_checker/youtubeChecker');
+const TwitchChecker = require('./botCheckers/twitch_bot_checker/TwitchChecker')
+const PinterestChecker = require('./botCheckers/pinterest_bot_checker/PinterestChecker')
+const {
+    promisify
+} = require('util')
+// Initialize request lib for async requests
+const requestAsync = promisify(request.defaults({
+    headers: {
+        'Client-ID': config.get('twitch.client_id')
+    },
+    rejectUnauthorized: false
+}))
 
 const router = express.Router();
 router.post('/getLinks', getLinks);
 
 module.exports = router;
+
+
+
+async function getPinterestResult(accessPinterest){
+	const num  = await getPinterestNumerical(accessPinterest)
+	let checks = {
+		isBot: null,
+		errors: []
+	}
+	switch(num){
+		case 0:
+			checks.isBot = false
+		break
+		case 1:
+			checks.isBot = true
+		break
+		case 400:
+			checks.errors.push({
+				error: 'API Error',
+				errorCode: 400
+			})
+		break
+		case 500:
+			checks.errors.push({
+				error: 'Pinterest API Error',
+				errorCode: 500
+			})
+		break
+	}
+	return checks
+}
+
+async function getPinterestNumerical(accessPinterest){
+	data = await getPinterestUserData(accessPinterest)
+	if (data.error) return 500
+	try{
+		const pinterestChecker = new PinterestChecker(data)
+		const score = pinterestChecker.getCompleteScore()
+		if (score > 125) return 0
+		else return 1
+	}catch(e){
+		console.log(e)
+		return 400
+	}
+}
+
+async function getPinterestUserData(accessPinterest){
+	const data = await pinterestGet('me/', '&fields=first_name%2Cid%2Clast_name%2Curl%2Caccount_type%2Cbio%2Ccounts%2Ccreated_at%2Cimage%2Cusername', accessPinterest)
+	if (typeof data == 'number') return {
+		error: true,
+		errorCode: 500
+	}
+	let boards = null
+	let pins = null
+	// Checks whether user has boards
+	if (data.data.counts.boards){
+		boards = await pinterestGet('me/boards', '&fields=id%2Cname%2Curl%2Ccounts%2Ccreated_at%2Cdescription%2Cimage%2Cprivacy%2Creason', accessPinterest)
+		if (typeof boards == 'number') return {
+			error: true,
+			errorCode: 500
+		}
+	}
+	// Checks whether user has pins
+	if (data.data.counts.pins){
+		pins = await pinterestGet('me/pins/', '&fields=note%2Cattribution%2Cboard%2Ccounts%2Ccreated_at%2Cmetadata', accessPinterest)
+		if (typeof pins == 'number') return {
+			error: true,
+			errorCode: 500
+		}
+	}
+	return {
+		error: false,
+		userData: data,
+		boards,
+		pins
+	}
+	
+}
+// Gets whatever needed endpoint from pinterest API and parses response
+async function pinterestGet(endpoint, parameters, access_token){
+	const requestPin = promisify(request)
+	const data = await requestPin(`https://api.pinterest.com/v1/${endpoint}?access_token=${access_token}${parameters}`)
+	console.log(`Request status code: ${data.statusCode}`)
+	if (data.statusCode != 200)	
+		return data.statusCode
+	// console.log(JSON.parse(data.body))
+	return JSON.parse(data.body)
+}
+async function getTwitchResult(login){
+	const num  = await getTwitchNumericResult(login)
+	let checks = {
+		isBot: null,
+		errors: []
+	}
+	switch(num){
+		case 0:
+			checks.isBot = false
+		break
+		case 1:
+			checks.isBot = true
+		break
+		case 400:
+			checks.errors.push({
+				error: 'API Error',
+				errorCode: 400
+			})
+		break
+		case 500:
+			checks.errors.push({
+				error: 'Twitch API Error',
+				errorCode: 500
+			})
+		break
+	}
+	return checks
+}
+
+async function getTwitchNumericResult(login) {
+    let checks = {
+        isBot: null,
+        errors: []
+    }
+    // Retrieves twitch user data from API 
+    const userData = await getTwitchUserData(login)
+    // If there's an error in retrieving returns error with it's text
+    if (userData.error) {
+        console.log(`Error: ${userData}`)
+        return 500
+    }
+    console.log('Successfully retrieved user data')
+    // Create an instance of TwitchChecker class with provided data
+    const twitchChecker = new TwitchChecker(userData)
+    try {
+        // Get  score
+        const score = twitchChecker.getCompleteScore()
+        if (score > 100) return 0
+		else return 1
+    } catch (e) {
+        // If there is an error return it
+        console.log(e)
+		return 400
+    }
+    return 1
+}
+async function getTwitchUserData(login) {
+    console.log(`Getting data for ${login}`)
+
+    let userData = await requestAsync(`https://api.twitch.tv/helix/users?login=${login}`)
+    // if first request is successfull then all other will be
+    if (userData.statusCode === 200) {
+        userData = JSON.parse(userData.body).data
+        if (userData.length) {
+            userData = userData[0]
+            let userFollowers = (await requestAsync(`https://api.twitch.tv/helix/users/follows?to_id=${userData.id}`)).body
+            let userFollows = (await requestAsync(`https://api.twitch.tv/helix/users/follows?from_id=${userData.id}`)).body
+            let userVideos = (await requestAsync(`https://api.twitch.tv/helix/videos?user_id=${userData.id}`)).body
+            userFollowers = JSON.parse(userFollowers)
+            userFollows = JSON.parse(userFollows)
+            userVideos = JSON.parse(userVideos)
+            // Check whether user has videos
+            if (userVideos.status === 404 || !userVideos.data.length) userVideos = false
+            return {
+                error: false,
+                data: userData,
+                followers: userFollowers.total,
+                follows: userFollows.total,
+                videos: userVideos
+            }
+        } else return {
+            error: true,
+			errorCode: 500
+        }
+    } else return {
+        error: true,
+        errorCode: 500
+    }
+}
 
 function getFacebookResult(facebookUsername, checks) {
 	return new Promise((resolve) => {
@@ -177,8 +366,9 @@ async function getTwitterNumericResult(twitterHandle) {
 	}
 }
 
-function isItABot(handles, checks) {
-	var promise = new Promise((resolve) => {
+async function isItABot(handles, checks) {
+	let twitchRes = null
+	var promise = new Promise(async (resolve) => {
 		var igPromise, twitterPromise, facebookPromise, youtubePromise;
 		if (handles.instagram !== null && handles.instagram !== '')
 			igPromise = getInstagramResult(handles.instagram, checks);
@@ -193,12 +383,22 @@ function isItABot(handles, checks) {
 		if (handles.youtubeChannelId !== null && handles.youtubeChannelId !== '') {
 			youtubePromise = youtubeChecker(handles.youtubeChannelId, checks);
 		}
-
+		if(handles.twitch !== null && handles.twitch !== ''){
+			twitchRes = await getTwitchResult(handles.twitch)
+		}
+		if (handles.pinterest !== null && handles.pinterest !== ''){
+			pinterestRes = await getPinterestResult(handles.pinterest)
+		}
 		try {
 			Promise.all([ igPromise, twitterPromise, facebookPromise, youtubePromise ]).then((result) => {
 				console.log('');
 				console.log('');
 				checks.facebook = result[2];
+				if(twitchRes){
+					checks.twitch = twitchRes
+				}
+				if (pinterestRes)
+					checks.pinterest = pinterestRes
 				console.log('Results: ' + JSON.stringify(checks));
 				resolve();
 			});
@@ -210,14 +410,14 @@ function isItABot(handles, checks) {
 	return promise;
 }
 
-function getLinks(req, res, next) {
+async function getLinks(req, res, next) {
 	var checks = {};
 	var handles = {};
-
 	if (req.body.twitter !== null) handles.twitter = req.body.twitter;
 	if (req.body.insta !== null) handles.instagram = req.body.insta;
 	if (req.body.facebook !== null) handles.facebook = req.body.facebook;
 	if (req.body.youtube !== null) handles.youtubeChannelId = req.body.youtube;
-
+	if (req.body.twitch !== null) handles.twitch = req.body.twitch
+	if (req.body.pinterest !== null) handles.pinterest = req.body.pinterest
 	isItABot(handles, checks).then(() => res.json(JSON.stringify(checks)));
 }
