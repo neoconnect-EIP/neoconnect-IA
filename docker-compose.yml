@@ -1,0 +1,10 @@
+version: "3"
+services:
+  app:
+    image: node:13.2.0-alpine3.10
+    working_dir: /var/www/node
+    volumes:
+    - .:/var/www/node
+    ports:
+    - 8181:3000
+    command: sh -c "npm install; npm start"
