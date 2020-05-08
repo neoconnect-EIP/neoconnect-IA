@@ -9,6 +9,10 @@ const facebookChecker = require('./botCheckers/facebook_bot_checker/scraper').ch
 const youtubeChecker = require('./botCheckers/youtube_bot_checker/youtubeChecker');
 const TwitchChecker = require('./botCheckers/twitch_bot_checker/TwitchChecker')
 const PinterestChecker = require('./botCheckers/pinterest_bot_checker/PinterestChecker')
+
+const swaggerUi =  require('swagger-ui-express');
+const swaggerDocument =  require('./swagger.json');
+
 const {
     promisify
 } = require('util')
@@ -25,6 +29,7 @@ router.post('/getLinks', getLinks);
 
 module.exports = router;
 
+router.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 
 async function getPinterestResult(accessPinterest){
@@ -367,7 +372,8 @@ async function getTwitterNumericResult(twitterHandle) {
 }
 
 async function isItABot(handles, checks) {
-	let twitchRes = null
+	let twitchRes = null;
+	let pinterestRes = null;
 	var promise = new Promise(async (resolve) => {
 		var igPromise, twitterPromise, facebookPromise, youtubePromise;
 		if (handles.instagram !== null && handles.instagram !== '')

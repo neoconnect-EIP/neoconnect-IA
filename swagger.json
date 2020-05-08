@@ -1,0 +1,178 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "IA Neoconnect",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Dev version with docker-compose and nginx proxy"
+    },
+    {
+      "url": "/web",
+      "description": "Production version"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Check",
+      "description": "Check Bot"
+    }
+  ],
+  "paths": {
+    "/getLinks": {
+      "post": {
+        "tags": [
+          "Check"
+        ],
+        "summary": "Check if bot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckRequest"
+              },
+              "example": {
+                "twitter": "aaze",
+                "instagram": "azz",
+                "facebook": "azze",
+                "pinterest": "idosq",
+                "twitch": "oidq",
+                "youtube": "dq"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/200"
+          },
+          "400": {
+            "description": "Request Body Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "Error Body": {
+                    "value": {
+                      "code": 400,
+                      "message": "Erreur dans un champ"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "description": "Request Body Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "200": {
+        "description": "Success",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CheckResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckRequest": {
+        "type": "object",
+        "properties": {
+          "facebook": {
+            "type": "string"
+          },
+          "twitter": {
+            "type": "string"
+          },
+          "instagram": {
+            "type": "string"
+          },
+          "youtube": {
+            "type": "string"
+          },
+          "pinterest": {
+            "type": "string"
+          },
+          "twitch": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckResponse": {
+        "type": "object",
+        "properties": {
+          "instagram": {
+            "type": "object",
+            "properties": {
+              "isBot": "strings"
+            }
+          },
+          "facebook": {
+            "type": "object",
+            "properties": {
+              "isBot": "string"
+            }
+          },
+          "twitter": {
+            "type": "object",
+            "properties": {
+              "isBot": "string"
+            }
+          },
+          "pinterest": {
+            "type": "object",
+            "properties": {
+              "isBot": "string"
+            }
+          },
+          "twitch": {
+            "type": "object",
+            "properties": {
+              "isBot": "string"
+            }
+          },
+          "youtube": {
+            "type": "object",
+            "properties": {
+              "isBot": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
