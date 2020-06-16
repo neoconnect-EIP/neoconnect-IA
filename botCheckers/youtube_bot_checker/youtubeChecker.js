@@ -4,51 +4,76 @@ const config = require('config');
 var periodRisk = 0;
 var vidDescriptionRisk = 0;
 var subViewRisk = 0;
+try{
 
-function getChannelData(channelId) {
+function getChannelData(channel) {
 	return new Promise((resolve) => {
-		request(
-			`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics
-&id=${channelId}&key=${config.get('youtube.apiKey')}`,
-			function(error, response, body) {
-				if (response.statusCode == 200) {
-					channelData = JSON.parse(body);
-					youtubeSubscriberRatiosCheck(channelData).then((result) => {
-						resolve(result);
-					});
-				} else if (response.statusCode >= 400 && response.statusCode <= 499) {
-					console.log('error:', error);
-					400;
-				} else {
-					console.log('error:', error);
-					return 500;
-				}
-			}
-		);
+		request(`https://www.googleapis.com/youtube/v3/search?channelType=any&q=${channel}&type=channel&part=snippet&key=${config.get('youtube.apiKey')}`, (e, r, b) => {
+		if (r.statusCode == 200){
+				const ch = JSON.parse(b)
+				if (ch.items.length){
+					const channelId = ch.items[0].id.channelId
+					request(
+						`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics
+			&id=${channelId}&key=${config.get('youtube.apiKey')}`,
+						function(error, response, body) {
+							if (response.statusCode == 200) {
+								channelData = JSON.parse(body);
+								if ('items' in channelData){
+									youtubeSubscriberRatiosCheck(channelData).then((result) => {
+										resolve(result);
+									});
+								}else resolve(500)
+								
+							} else if (response.statusCode >= 400 && response.statusCode <= 499) {
+								console.log('error:', error);
+								return resolve(400);
+							} else {
+								console.log('error:', error);
+								return resolve(500);
+							}
+						}
+					);
+				}else return resolve(500)
+			}else return resolve(500)
+			
+		})
+		
 	});
 }
 
-function getChannelActivities(channelId) {
+function getChannelActivities(channel) {
 	return new Promise((resolve) => {
-		request(
-			`https://www.googleapis.com/youtube/v3/activities?part=snippet,
-			contentDetails&channelId=${channelId}&key=${config.get('youtube.apiKey')}`,
-			function(error, response, body) {
-				if (response.statusCode == 200) {
-					let promises = [];
-					activities = JSON.parse(body);
-					promises.push(youtubePeriodCheck(activities));
-					promises.push(youtubeVideosDescriptionCheck(activities));
-					Promise.all(promises).then((results) => resolve(results));
-				} else if (response.statusCode >= 400 && response.statusCode <= 499) {
-					console.log('error:', error);
-					return 400;
-				} else {
-					console.log('error:', error);
-					return 500;
-				}
-			}
-		);
+
+		request(`https://www.googleapis.com/youtube/v3/search?channelType=any&q=${channel}&type=channel&part=snippet&key=${config.get('youtube.apiKey')}`, (e, r, b) => {
+		if (r.statusCode == 200){
+				const ch = JSON.parse(b)
+				if (ch.items.length){
+					const channelId = ch.items[0].id.channelId
+					console.log(`Youtube ID: ${channelId}`)
+					request(
+						`https://www.googleapis.com/youtube/v3/activities?part=snippet,
+						contentDetails&channelId=${channelId}&key=${config.get('youtube.apiKey')}`,
+						function(error, response, body) {
+							if (response.statusCode == 200) {
+								let promises = [];
+								activities = JSON.parse(body);
+								promises.push(youtubePeriodCheck(activities));
+								promises.push(youtubeVideosDescriptionCheck(activities));
+								Promise.all(promises).then((results) => resolve(results));
+							} else if (response.statusCode >= 400 && response.statusCode <= 499) {
+								console.log('error:', error);
+								return resolve(400);
+							} else {
+								console.log('error:', error);
+								return resolve(500);
+							}
+						}
+					);
+				}else return resolve(500)
+			}else return resolve(500)
+		})
+		
 	});
 }
 
@@ -59,16 +84,21 @@ function youtubeBotCheck(channelId, checks) {
 	return new Promise((resolve) => {
 		checks.youtube = {
 			isBot: null,
-			errors: []
+			error: null,
+			errorCode: 200
 		};
 		let promises = [];
 		promises.push(getChannelActivities(channelId));
 		promises.push(getChannelData(channelId));
 		Promise.all(promises).then((results) => {
-			if (results[0][0] >= 400) checks.youtube.errors.push({ code: results[0][0] });
-			else if (results[0][1] >= 400) checks.youtube.errors.push({ code: results[0][1] });
-			else if (results[1]) checks.youtube.errors.push({ code: results[1] });
-			else {
+			console.log(typeof results[1])
+			if (typeof results[0] == "number"){
+				if (results[0] == 400 || results[0] == 500){
+					checks.youtube.error = true
+					checks.youtube.errorCode = results[0]
+					resolve(checks)
+				}
+			} else {
 				let finalRisk = (results[0][0] + results[0][1] + results[1]) / 3;
 				console.log('      final : ' + finalRisk);
 				if (finalRisk > 40) {
@@ -360,5 +390,7 @@ function youtubeCommentsCheck(data) {
 		return repetitiveCommentsCount / commentsCount;
 	});
 }
-
+}catch(e){
+	console.log(e)
+}
 module.exports = youtubeBotCheck;

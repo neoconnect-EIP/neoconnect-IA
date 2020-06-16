@@ -3,9 +3,9 @@ const config = require('config');
 
 async function checkFacebookProfileExistence(username) {
 	let result = {
-		exists: null,
+		isBot: null,
 		error: null,
-		errorMsg: ''
+		errorCode: ''
 	};
 
 	let isHeadless = false;
@@ -44,11 +44,13 @@ async function checkFacebookProfileExistence(username) {
 		return new Promise((resolve, reject) => {
 			if (response.status() == 200) {
 				console.log('      This profile exists');
-				result.exists = true;
+				result.isBot = false;
+				result.errorCode = 200
 				resolve(result);
 			} else {
 				console.log('      The profile associated with the given username does not exist');
-				result.exists = false;
+				result.isBot = true;
+				result.errorCode = 200
 				resolve(result);
 			}
 		});

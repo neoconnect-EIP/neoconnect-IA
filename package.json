@@ -21,10 +21,11 @@
 		"nodemon": "^1.19.0",
 		"puppeteer": "^2.0.0",
 		"request": "^2.88.0",
-		"sync-request": "^6.1.0",
-		"twitter": "^1.7.1",
-		"unirest": "^0.6.0",
 		"swagger-jsdoc": "^3.3.0",
-		"swagger-ui-express": "^4.0.7"
+		"swagger-ui-express": "^4.0.7",
+		"sync-request": "^6.1.0",
+		"tiktok-scraper": "^1.1.19",
+		"twitter": "^1.7.1",
+		"unirest": "^0.6.0"
 	}
 }

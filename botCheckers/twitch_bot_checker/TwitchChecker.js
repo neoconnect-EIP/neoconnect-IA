@@ -27,7 +27,7 @@ class TwitchChecker {
     }
     getViewsScore() {
         const data = this.data
-        const userViews = data.data.view_count
+        const userViews = data.views
         let finalScore = 0
         // Checks how many views user has and gets the score
         if (userViews > 1000) finalScore = 100
@@ -42,7 +42,7 @@ class TwitchChecker {
     }
     getProfileScore() {
         const data = this.data
-        const description = data.data.description
+        const description = data.data.bio
         let finalScore = 0
         // If description exists add points
         if (description.length) finalScore += 33
@@ -60,7 +60,7 @@ class TwitchChecker {
     }
     getVideosScore() {
         const data = this.data
-        const videos = data.videos.data
+        const videos = data.videos
         // Gets average views
         const avrgViews = parseInt(this.getAverageViews(videos))
         console.log('      Average Views : ' + parseInt(avrgViews))
@@ -79,7 +79,7 @@ class TwitchChecker {
     }
     getAverageViews(videos) {
         // Gets sum of all views
-        let views = videos.reduce((sum, val) => sum + parseInt(val.view_count), 0)
+        let views = videos.reduce((sum, val) => sum + parseInt(val.views), 0)
         // Gets average views
         return views / videos.length
     }
