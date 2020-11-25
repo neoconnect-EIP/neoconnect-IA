@@ -4,10 +4,37 @@ const {
 	hugeFollowingLowEngagement,
 	lotsOffViewsNoLikes
 } = require('./engagementScores');
-
+const request = require('request')
+const { promisify } = require('util')
+const requestAsync = promisify(request)
 const getFollowingCountScore = require('./followingCountScore').getFollowingCountScore;
+function getInstagramResult(instagramHandle, checks) {
+	var promise = new Promise((resolve) => {
+		checks.instagram = {
+			isBot: null,
+			error: null,
+			errorCode: 200
+		};
 
-module.exports.isInstagramBot = (data) => {
+		request(`https://www.instagram.com/${instagramHandle}/?__a=1`, function(error, response, body) {
+			if (response.statusCode == 404) {
+				checks.instagram.error = 'Instagram handle is incorrect'
+				checks.instagram.errorCode = 400
+			} else if (error) {
+				checks.instagram.error = 'API error'
+				checks.instagram.errorCode = 500
+				resolve();
+			} else if (response.statusCode == 200) {
+				body = JSON.parse(body);
+				checks.instagram.isBot = isInstagramBot(body);
+			}
+
+			resolve();
+		});
+	});
+	return promise;
+}
+function isInstagramBot (data) {
 	console.log('');
 	console.log('');
 	console.log('Instagram scores :');
@@ -53,3 +80,34 @@ module.exports.isInstagramBot = (data) => {
 	if (score > 60) return true;
 	return false;
 };
+async function getInstagramNumericResult(instagramHandle) {
+	let checks = {};
+	await getInstagramResult(instagramHandle, checks);
+
+	if (checks.instagram.isBot !== null) {
+		if (checks.instagram.isBot === true) return 1;
+
+		if (checks.instagram.isBot === false) return 0;
+	} else if (checks.instagram.errors.length > 0) {
+		if (checks.instagram.errors[0].errorCode === 500) return 500;
+		else return 400;
+	}
+}
+async function getInstagramFollowers(instagramHandle){
+	const data = await requestAsync(`https://www.instagram.com/${instagramHandle}/?__a=1`)
+		if (data.statusCode == 404) {
+			return false
+		} else if (data.error) {
+			return false
+		}else if (data.statusCode == 200) {
+			try{
+				body = JSON.parse(data.body);
+				return body.graphql.user.edge_followed_by.count;
+			}catch(e){
+				console.log(e)
+				return false
+			}
+			
+		}
+}
+module.exports = {getInstagramResult, getInstagramFollowers}

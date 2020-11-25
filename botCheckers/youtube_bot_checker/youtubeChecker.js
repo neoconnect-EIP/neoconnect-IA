@@ -1,11 +1,15 @@
 var request = require('request');
 const config = require('config');
+const {
+    promisify
+} = require('util')
+const requestAsync = promisify(request)
 
 var periodRisk = 0;
 var vidDescriptionRisk = 0;
 var subViewRisk = 0;
 try{
-
+// gets channel data
 function getChannelData(channel) {
 	return new Promise((resolve) => {
 		request(`https://www.googleapis.com/youtube/v3/search?channelType=any&q=${channel}&type=channel&part=snippet&key=${config.get('youtube.apiKey')}`, (e, r, b) => {
@@ -14,8 +18,7 @@ function getChannelData(channel) {
 				if (ch.items.length){
 					const channelId = ch.items[0].id.channelId
 					request(
-						`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics
-			&id=${channelId}&key=${config.get('youtube.apiKey')}`,
+						`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${config.get('youtube.apiKey')}`,
 						function(error, response, body) {
 							if (response.statusCode == 200) {
 								channelData = JSON.parse(body);
@@ -41,7 +44,7 @@ function getChannelData(channel) {
 		
 	});
 }
-
+// gets channel activities(videos, descriptions, time)
 function getChannelActivities(channel) {
 	return new Promise((resolve) => {
 
@@ -52,8 +55,7 @@ function getChannelActivities(channel) {
 					const channelId = ch.items[0].id.channelId
 					console.log(`Youtube ID: ${channelId}`)
 					request(
-						`https://www.googleapis.com/youtube/v3/activities?part=snippet,
-						contentDetails&channelId=${channelId}&key=${config.get('youtube.apiKey')}`,
+						`https://www.googleapis.com/youtube/v3/activities?part=snippet,contentDetails&channelId=${channelId}&key=${config.get('youtube.apiKey')}`,
 						function(error, response, body) {
 							if (response.statusCode == 200) {
 								let promises = [];
@@ -62,9 +64,11 @@ function getChannelActivities(channel) {
 								promises.push(youtubeVideosDescriptionCheck(activities));
 								Promise.all(promises).then((results) => resolve(results));
 							} else if (response.statusCode >= 400 && response.statusCode <= 499) {
+								console.log(response.body)
 								console.log('error:', error);
 								return resolve(400);
 							} else {
+								console.log('this2')
 								console.log('error:', error);
 								return resolve(500);
 							}
@@ -77,7 +81,7 @@ function getChannelActivities(channel) {
 	});
 }
 
-function youtubeBotCheck(channelId, checks) {
+function youtubeChecker(channelId, checks) {
 	console.log('');
 	console.log('');
 	console.log('Youtube :');
@@ -389,8 +393,46 @@ function youtubeCommentsCheck(data) {
 		console.log('comments risk : ' + repetitiveCommentsCount / commentsCount);
 		return repetitiveCommentsCount / commentsCount;
 	});
+	
 }
 }catch(e){
 	console.log(e)
 }
-module.exports = youtubeBotCheck;
+async function getYoutubeNumericResult(channelId) {
+	let checks = {};
+	await youtubeChecker(channelId, checks);
+
+	if (checks.youtube.isBot !== null) {
+		if (checks.youtube.isBot === true) return 1;
+
+		if (checks.youtube.isBot === false) return 0;
+	} else if (checks.youtube.errors.length > 0) {
+		if (checks.youtube.errors[0].errorCode === 500) return 500;
+		else return 400;
+	}
+}
+async function getYoutubeFollowers(channel){
+	//data.items[0].statistics.subscriberCount
+	let search = await requestAsync(`https://www.googleapis.com/youtube/v3/search?channelType=any&q=${channel}&type=channel&part=snippet&key=${config.get('youtube.apiKey')}`)
+	if (search.statusCode == 200){
+		search = JSON.parse(search.body)
+		if (search.items.length){
+			const channelId = search.items[0].id.channelId
+			const data = await requestAsync(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${config.get('youtube.apiKey')}`)
+			if (data.statusCode == 200){
+				let body = JSON.parse(data.body);
+				if (body.items.length){
+					return body.items[0].statistics.subscriberCount
+				}else {
+					return false
+				}
+			}else {
+				console.log(body.body)
+				return false
+		
+			}
+		}
+	}else return false
+	
+}
+module.exports = { youtubeChecker, getYoutubeNumericResult, getYoutubeFollowers };

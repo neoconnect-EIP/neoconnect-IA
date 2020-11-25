@@ -1,3 +1,9 @@
+var request = require('request');
+
+const {
+    promisify
+} = require('util')
+
 class PinterestChecker {
     constructor(data) {
         this.data = data.userData
@@ -86,4 +92,93 @@ class PinterestChecker {
         return finalScore
     }
 }
-module.exports = PinterestChecker
+// generates general result
+async function getPinterestResult(accessPinterest){
+	const num  = await getPinterestNumerical(accessPinterest)
+	let checks = {
+		isBot: null,
+		error: null,
+		errorCode: 200
+	}
+	switch(num){
+		case 0:
+			checks.isBot = false
+		break
+		case 1:
+			checks.isBot = true
+		break
+		case 400:
+			checks.error = 'API Error'
+			checks.errorCode = 400
+		break
+		case 500:
+			checks.error = 'Pinterest API Error'
+			checks.errorCode = 500
+		break
+	}
+	return checks
+}
+// generates numerical 
+async function getPinterestNumerical(accessPinterest){
+	data = await getPinterestUserData(accessPinterest)
+	if (data.error) return 500
+	try{
+		const pinterestChecker = new PinterestChecker(data)
+		const score = pinterestChecker.getCompleteScore()
+		if (score > 125) return 0
+		else return 1
+	}catch(e){
+		console.log(e)
+		return 400
+	}
+}
+// gets pinterest followers
+async function getPinterestFollowers(accessToken){
+	const data = await pinterestGet('me/', '&fields=first_name%2Cid%2Clast_name%2Curl%2Caccount_type%2Cbio%2Ccounts%2Ccreated_at%2Cimage%2Cusername', accessPinterest)
+	if (typeof data == 'number') return false
+	return data.data.counts.followers
+}
+// gets pinterest user data
+async function getPinterestUserData(accessPinterest){
+	const data = await pinterestGet('me/', '&fields=first_name%2Cid%2Clast_name%2Curl%2Caccount_type%2Cbio%2Ccounts%2Ccreated_at%2Cimage%2Cusername', accessPinterest)
+	if (typeof data == 'number') return {
+		error: true,
+		errorCode: 500
+	}
+	let boards = null
+	let pins = null
+	// Checks whether user has boards
+	if (data.data.counts.boards){
+		boards = await pinterestGet('me/boards', '&fields=id%2Cname%2Curl%2Ccounts%2Ccreated_at%2Cdescription%2Cimage%2Cprivacy%2Creason', accessPinterest)
+		if (typeof boards == 'number') return {
+			error: true,
+			errorCode: 500
+		}
+	}
+	// Checks whether user has pins
+	if (data.data.counts.pins){
+		pins = await pinterestGet('me/pins/', '&fields=note%2Cattribution%2Cboard%2Ccounts%2Ccreated_at%2Cmetadata', accessPinterest)
+		if (typeof pins == 'number') return {
+			error: true,
+			errorCode: 500
+		}
+	}
+	return {
+		error: false,
+		userData: data,
+		boards,
+		pins
+	}
+	
+}
+// Gets whatever needed endpoint from pinterest API and parses response
+async function pinterestGet(endpoint, parameters, access_token){
+	const requestPin = promisify(request)
+	const data = await requestPin(`https://api.pinterest.com/v1/${endpoint}?access_token=${access_token}${parameters}`)
+	console.log(`Request status code: ${data.statusCode}`)
+	if (data.statusCode != 200)	
+		return data.statusCode
+	// console.log(JSON.parse(data.body))
+	return JSON.parse(data.body)
+}
+module.exports = { getPinterestFollowers, getPinterestResult }

@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const config = require('config');
 
-async function checkFacebookProfileExistence(username) {
+async function facebookChecker(username) {
 	let result = {
 		isBot: null,
 		error: null,
@@ -10,7 +10,7 @@ async function checkFacebookProfileExistence(username) {
 
 	let isHeadless = false;
 	if (config.get('facebook.isVisualVerification') === true) isHeadless = false;
-	else isHeadless = true;
+	else isHeadless = false;
 	try {
 		const browser = await puppeteer.launch({ headless: isHeadless });
 		const page = await browser.newPage();
@@ -59,5 +59,35 @@ async function checkFacebookProfileExistence(username) {
 		console.log(err);
 	}
 }
+function getFacebookResult(facebookUsername, checks) {
+	return new Promise((resolve) => {
+		facebookChecker(facebookUsername).then((result) => {
+			resolve(result);
+		});
+	});
+}
 
-module.exports = { checkFacebookProfileExistence };
+function getFacebookNumericResult(facebookUsername) {
+	let promise = new Promise((resolve) => {
+		facebookChecker(facebookUsername).then((result) => {
+			result = {
+				exists: null,
+				error: null,
+				errorMsg: ''
+			};
+			resolve(result);
+		});
+	});
+
+	promise.then((result) => {
+		if (result.exists !== null) {
+			if (result.exists === true) return 1;
+			else if (result.exists === false) return 0;
+		} else if (result.error.length > 0) {
+			if (result.error === 500) return 500;
+			else return 400;
+		}
+	});
+}
+
+module.exports = { getFacebookResult, getFacebookNumericResult };
