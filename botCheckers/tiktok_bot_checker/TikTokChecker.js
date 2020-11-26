@@ -12,8 +12,8 @@ class TikTokChecker{
 	}
 	// calculates followers score
     getFollowersScore(){
-        const followers = this.user.fans;
-        const following = this.user.following;
+        const followers = this.user.stats.followerCount;
+        const following = this.user.stats.followingCount;
         const ratio = following / followers;
         let finalScore = 0
         if (following == 0 && followers == 0) finalScore = 0;
@@ -28,7 +28,8 @@ class TikTokChecker{
 	}
 	// calculates heart(like) score
     getHeartScore() {
-        const hearts = this.user.heart
+		// console.log(this.user)
+        const hearts = this.user.stats.heart
         let finalScore = 0;
         if (hearts > 1000) finalScore = 100
         else if (hearts > 500) finalScore = 80
@@ -41,7 +42,7 @@ class TikTokChecker{
 	// checks whether user is verified
     getVerifiedScore() {
         let finalScore = 0
-        if (this.user.verified) finalScore = 500;
+        if (this.user.user.verified) finalScore = 500;
         else finalScore = 0
         console.log('      getVerifiedScore : ' + finalScore.toFixed(2));
         return finalScore
@@ -49,8 +50,8 @@ class TikTokChecker{
 	// calculates profile score
     getProfileScore() {
         let finalScore = 0
-        if (this.user.signature) finalScore += 50
-        if (this.user.openFavoruite) finalScore += 50
+        if (this.user.user.signature) finalScore += 50
+        if (this.user.user.openFavoruite) finalScore += 50
         console.log('      getProfileScore : ' + finalScore.toFixed(2));
         return finalScore
 	}
@@ -73,7 +74,7 @@ async function getTikTokFollowers(username){
 	const user = await getTikTokUserData(username)
 	if (user){
 		if (!user.isSecret)
-			return user.fans
+			return user.stats.followerCount
 		else 
 			return false
 	}else{
